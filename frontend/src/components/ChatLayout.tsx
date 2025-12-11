@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, Sparkles, Waves } from "lucide-react";
+import { Activity, ScanSearch, Waves, Sparkles } from "lucide-react";
 import MessageList from "./MessageList";
 import Composer from "./Composer";
 import type { ChatMessage, InterviewState } from "../types";
@@ -63,22 +63,47 @@ const ChatLayout = ({
 
   return (
     <div className="flex h-full flex-col rounded-[26px] border border-white/10 bg-slate-900/60 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="inline-flex items-center gap-2 rounded-full border border-brand-400/40 bg-brand-500/15 px-4 py-1 text-sm font-medium text-brand-50">
-          <Sparkles className="size-4 text-brand-100" />
-          RecruitLens
-        </div>
-      </div>
 
       <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/30">
         {!hasResume ? (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-            <p>{introText}</p>
+          <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+            <p className="max-w-md text-base text-white/70 leading-relaxed">
+              <span className="block text-xl font-medium text-brand-100 mb-3">Welcome to RecruitLens</span>
+              Upload your resume to unlock the interview. <br />
+              Use the <span className="text-[#40E0D0] font-medium">Resume</span> button below to get started.
+            </p>
           </div>
         ) : (
-          <MessageList messages={messages} />
+          <MessageList messages={messages} isSending={isSending} />
         )}
       </div>
+
+      {/* Quick Action Buttons */}
+      {hasResume && messages.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <QuickActionButton
+            label="Interview Tips"
+            onClick={() => {
+              setComposerValue("Give me some interview tips for my role");
+              onSend("Give me some interview tips for my role");
+            }}
+          />
+          <QuickActionButton
+            label="Highlight Skills"
+            onClick={() => {
+              setComposerValue("What are my strongest skills from my resume?");
+              onSend("What are my strongest skills from my resume?");
+            }}
+          />
+          <QuickActionButton
+            label="Practice Question"
+            onClick={() => {
+              setComposerValue("Give me a practice interview question");
+              onSend("Give me a practice interview question");
+            }}
+          />
+        </div>
+      )}
 
       <Composer
         value={composerValue}
@@ -93,6 +118,18 @@ const ChatLayout = ({
     </div>
   );
 };
+
+// Quick Action Button Component
+const QuickActionButton = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white hover:border-white/25 hover:scale-105"
+  >
+    <Sparkles className="size-3" />
+    {label}
+  </button>
+);
 
 export default ChatLayout;
 

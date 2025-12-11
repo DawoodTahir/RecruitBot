@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "../config";
 import type { InterviewState } from "../types";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, ScanSearch, Shield, ChevronDown } from "lucide-react";
 
 interface SidePanelProps {
   hasResume: boolean;
@@ -143,8 +143,13 @@ const SuggestionBox = ({
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-3xl border border-white/10 bg-white/10 p-4 text-xs text-white/70">
-        Loading suggestions…
+      <div className="rounded-3xl border border-white/10 bg-white/10 p-5 flex flex-col items-center justify-center min-h-[200px]">
+        {/* Infinite loading spinner */}
+        <div className="relative">
+          <div className="w-10 h-10 rounded-full border-2 border-white/20"></div>
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-transparent border-t-[#40E0D0] animate-spin"></div>
+        </div>
+        <p className="mt-3 text-xs text-white/50">Loading suggestions...</p>
       </div>
     );
   }
@@ -218,10 +223,11 @@ const SuggestionBox = ({
 
       {phase === "tips" && tipsToShow.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {tipsToShow.map((tip) => (
+          {tipsToShow.map((tip, i) => (
             <span
               key={tip}
-              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs text-emerald-100 border border-emerald-400/40"
+              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs text-emerald-100 border border-emerald-400/40 animate-fade-in"
+              style={{ animationDelay: `${i * 100}ms` }}
             >
               {tip}
             </span>
@@ -233,18 +239,44 @@ const SuggestionBox = ({
 };
 
 const SidePanel = ({ hasResume, userId, interviewState }: SidePanelProps) => {
+  const [privacyExpanded, setPrivacyExpanded] = useState(false);
+
   return (
     <div className="flex h-full flex-col gap-5 rounded-[26px] border border-white/10 bg-slate-900/60 p-5">
       <div className="mb-2">
-        <h2 className="text-lg font-semibold text-white tracking-wide">RecruitLens</h2>
+        <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide">Suggestions</h2>
       </div>
       <SuggestionBox userId={userId} interviewState={interviewState} />
-      <div className="mt-auto pt-3 border-t border-white/5 text-[10px] leading-snug text-white/40">
-        <p>Privacy: Your resume and chat are used only to personalise this interview experience.</p>
+
+      {/* Expandable Privacy Section */}
+      <div className="mt-auto pt-3 border-t border-white/10">
+        <button
+          onClick={() => setPrivacyExpanded(!privacyExpanded)}
+          className="flex items-center gap-2 text-[11px] text-white/50 hover:text-white/70 transition-colors w-full text-left"
+        >
+          <Shield className="size-3" />
+          <span className="font-medium">Privacy & Security</span>
+          <ChevronDown className={`size-3 ml-auto transition-transform duration-200 ${privacyExpanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        <div className={`overflow-hidden transition-all duration-300 ${privacyExpanded ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+          <div className="pt-2 pl-1 space-y-2 text-[10px] text-white/40">
+            <p>Your resume and chat data are used only to personalize this interview experience.</p>
+            <p>Data is processed securely and not shared with third parties.</p>
+            <p>You can request data deletion at any time.</p>
+          </div>
+        </div>
+
+        {!privacyExpanded && (
+          <p className="text-[10px] leading-snug text-white/40 mt-1">
+            Your data is secure. Click to learn more.
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
 export default SidePanel;
+
 
