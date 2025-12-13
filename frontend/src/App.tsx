@@ -20,7 +20,7 @@ const App = () => {
 
   return (
     <div className="h-screen w-full overflow-hidden bg-slate-900 text-white">
-      <header className="w-full border-b border-white/10 bg-gradient-to-r from-[#40E0D0] to-teal-400 text-sm text-white shadow-lg shadow-teal-900/20">
+      <header className="w-full border-b border-white/10 bg-gradient-to-r from-[#24B3A8] to-teal-500 text-sm text-white shadow-lg shadow-teal-900/20">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-12 w-12 rounded-full bg-white backdrop-blur-sm border border-white/20 shadow-lg shadow-teal-900/20 overflow-hidden p-1.5 transition-transform hover:scale-105">
@@ -32,7 +32,7 @@ const App = () => {
             <button className="relative py-1 transition-all duration-200 hover:text-teal-100 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-white/50 after:transition-all after:duration-200 hover:after:w-full">About</button>
             <button className="relative py-1 transition-all duration-200 hover:text-teal-100 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-white/50 after:transition-all after:duration-200 hover:after:w-full">Pricing</button>
             <button className="relative py-1 transition-all duration-200 hover:text-teal-100 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-white/50 after:transition-all after:duration-200 hover:after:w-full">Support</button>
-            <button className="rounded-full bg-white px-5 py-2 text-xs font-bold text-[#40E0D0] shadow-md shadow-teal-900/10 transition-all duration-200 hover:bg-teal-50 hover:shadow-lg hover:scale-105">
+            <button className="rounded-full bg-white px-5 py-2 text-xs font-bold text-[#24B3A8] shadow-md shadow-teal-900/10 transition-all duration-200 hover:bg-teal-50 hover:shadow-lg hover:scale-105">
               Login / Signup
             </button>
           </nav>

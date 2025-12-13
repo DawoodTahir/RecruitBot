@@ -57,32 +57,70 @@ const SuggestionBox = ({
   const [visibleCount, setVisibleCount] = useState(0);
   const [tipsVisibleCount, setTipsVisibleCount] = useState(0);
 
-  // Phase control: company info -> skills -> interview tips
+  // Phase control: company info -> skills -> interview tips -> loop back
   useEffect(() => {
     if (!data) return;
     const hasCompany =
       !!data.company && (!!data.company.services_summary || !!data.company.culture_summary);
 
+    // Initial phase
     setPhase(hasCompany ? "company" : "skills");
     setHeadline("");
     setVisibleCount(0);
     setTipsVisibleCount(0);
 
-    let timerToSkills: number | undefined;
-    let timerToTips: number | undefined;
+    // Define phase durations
+    const companyDuration = 12000; // 12 seconds for company
+    const skillsDuration = 15000; // 15 seconds for skills
+    const tipsDuration = 15000;   // 15 seconds for tips
 
-    if (hasCompany) {
-      // ~12s for company profile, then ~20s of skills, then switch to tips
-      timerToSkills = window.setTimeout(() => setPhase("skills"), 12000);
-      timerToTips = window.setTimeout(() => setPhase("tips"), 12000 + 20000);
-    } else {
-      // No company info, go from skills to tips directly
-      timerToTips = window.setTimeout(() => setPhase("tips"), 20000);
-    }
+    let currentPhase: Phase = hasCompany ? "company" : "skills";
+
+    const cyclePhases = () => {
+      if (hasCompany) {
+        // Cycle: company -> skills -> tips -> company ...
+        if (currentPhase === "company") {
+          currentPhase = "skills";
+          setPhase("skills");
+          return skillsDuration;
+        } else if (currentPhase === "skills") {
+          currentPhase = "tips";
+          setPhase("tips");
+          return tipsDuration;
+        } else {
+          currentPhase = "company";
+          setPhase("company");
+          return companyDuration;
+        }
+      } else {
+        // Cycle: skills -> tips -> skills ...
+        if (currentPhase === "skills") {
+          currentPhase = "tips";
+          setPhase("tips");
+          return tipsDuration;
+        } else {
+          currentPhase = "skills";
+          setPhase("skills");
+          return skillsDuration;
+        }
+      }
+    };
+
+    // Start cycling after initial phase
+    let timeoutId: number;
+    const scheduleNext = (delay: number) => {
+      timeoutId = window.setTimeout(() => {
+        const nextDelay = cyclePhases();
+        scheduleNext(nextDelay);
+      }, delay);
+    };
+
+    // Schedule first transition
+    const initialDelay = hasCompany ? companyDuration : skillsDuration;
+    scheduleNext(initialDelay);
 
     return () => {
-      if (timerToSkills) window.clearTimeout(timerToSkills);
-      if (timerToTips) window.clearTimeout(timerToTips);
+      window.clearTimeout(timeoutId);
     };
   }, [data]);
 
@@ -147,7 +185,7 @@ const SuggestionBox = ({
         {/* Infinite loading spinner */}
         <div className="relative">
           <div className="w-10 h-10 rounded-full border-2 border-white/20"></div>
-          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-transparent border-t-[#40E0D0] animate-spin"></div>
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-transparent border-t-[#24B3A8] animate-spin"></div>
         </div>
         <p className="mt-3 text-xs text-white/50">Loading suggestions...</p>
       </div>
@@ -285,14 +323,41 @@ const CameraPreview = () => {
   };
 
   useEffect(() => {
+    // Auto-start camera on mount
+    const startCamera = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("Camera not supported in this browser.");
+        return;
+      }
+
+      try {
+        setError(null);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240 },
+          audio: false
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          void videoRef.current.play();
+        }
+        setIsActive(true);
+      } catch (err) {
+        setError("Unable to access camera.");
+        setIsActive(false);
+      }
+    };
+
+    startCamera();
+
     return () => {
       stopStream();
     };
   }, []);
 
   return (
-    <div className="pointer-events-auto flex flex-col items-end gap-2">
-      <div className="relative h-32 w-40 overflow-hidden rounded-2xl border border-white/15 bg-black/60">
+    <div className="pointer-events-auto flex flex-col w-full gap-2">
+      <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/15 bg-[#24B3A8]/60">
         {isActive ? (
           <video
             ref={videoRef}
@@ -302,7 +367,7 @@ const CameraPreview = () => {
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] text-white/60">
-            <Camera className="size-5 text-brand-200" />
+            <Camera className="size-5 text-white" />
             <span>Camera off</span>
           </div>
         )}
@@ -312,23 +377,6 @@ const CameraPreview = () => {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={toggleCamera}
-        className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white hover:border-white/40"
-      >
-        {isActive ? (
-          <>
-            <Square className="size-3" />
-            Stop
-          </>
-        ) : (
-          <>
-            <Camera className="size-3" />
-            Camera
-          </>
-        )}
-      </button>
     </div>
   );
 };
@@ -338,47 +386,51 @@ const SidePanel = ({ hasResume, userId, interviewState }: SidePanelProps) => {
 
   return (
     <div className="relative flex h-full flex-col gap-5 rounded-[26px] border border-white/10 bg-slate-900/60 p-5">
-      <div className="mb-2">
-        <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide">Suggestions</h2>
+      {/* Camera at the top for video interview feel */}
+      <div className="flex flex-col items-center gap-3">
+        <CameraPreview />
+        <p className="text-[10px] text-white/40 text-center">Your camera preview</p>
       </div>
-      <SuggestionBox userId={userId} interviewState={interviewState} />
 
-      {/* Privacy + Camera section */}
-      <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/10 pt-3 text-[10px] leading-snug text-white/40">
-        <div className="flex-1">
-          <button
-            onClick={() => setPrivacyExpanded(!privacyExpanded)}
-            className="flex items-center gap-2 text-[11px] text-white/50 hover:text-white/70 transition-colors w-full text-left"
-          >
-            <Shield className="size-3" />
-            <span className="font-medium">Privacy & Security</span>
-            <ChevronDown
-              className={`size-3 ml-auto transition-transform duration-200 ${
-                privacyExpanded ? "rotate-180" : ""
+      {/* Divider */}
+      <div className="border-t border-white/10" />
+
+      {/* Suggestions section */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-white/70 uppercase tracking-wide">Suggestions</h2>
+        <SuggestionBox userId={userId} interviewState={interviewState} />
+      </div>
+
+      {/* Privacy section at bottom */}
+      <div className="mt-auto border-t border-white/10 pt-3 text-[10px] leading-snug text-white/40">
+        <button
+          onClick={() => setPrivacyExpanded(!privacyExpanded)}
+          className="flex items-center gap-2 text-[11px] text-white/50 hover:text-white/70 transition-colors w-full text-left"
+        >
+          <Shield className="size-3" />
+          <span className="font-medium">Privacy & Security</span>
+          <ChevronDown
+            className={`size-3 ml-auto transition-transform duration-200 ${privacyExpanded ? "rotate-180" : ""
               }`}
-            />
-          </button>
+          />
+        </button>
 
-          <div
-            className={`overflow-hidden transition-all duration-300 ${
-              privacyExpanded ? "max-h-40 opacity-100 mt-2" : "max-h-0 opacity-0"
+        <div
+          className={`overflow-hidden transition-all duration-300 ${privacyExpanded ? "max-h-40 opacity-100 mt-2" : "max-h-0 opacity-0"
             }`}
-          >
-            <div className="pt-2 pl-1 space-y-2 text-[10px] text-white/40">
-              <p>Your resume and chat data are used only to personalize this interview experience.</p>
-              <p>Data is processed securely and not shared with third parties.</p>
-              <p>You can request data deletion at any time.</p>
-            </div>
+        >
+          <div className="pt-2 pl-1 space-y-2 text-[10px] text-white/40">
+            <p>Your resume and chat data are used only to personalize this interview experience.</p>
+            <p>Data is processed securely and not shared with third parties.</p>
+            <p>You can request data deletion at any time.</p>
           </div>
-
-          {!privacyExpanded && (
-            <p className="mt-1 text-[10px] leading-snug text-white/40">
-              Your data is secure. Click to learn more.
-            </p>
-          )}
         </div>
 
-        <CameraPreview />
+        {!privacyExpanded && (
+          <p className="mt-1 text-[10px] leading-snug text-white/40">
+            Your data is secure. Click to learn more.
+          </p>
+        )}
       </div>
     </div>
   );

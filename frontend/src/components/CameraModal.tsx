@@ -122,7 +122,7 @@ const CameraModal = ({ onCapture, onClose }: CameraModalProps) => {
                     <button
                         onClick={handleCapture}
                         disabled={!!error || !stream}
-                        className="group relative flex h-16 w-16 items-center justify-center rounded-full border-4 border-white/20 bg-white/10 transition-all hover:border-[#40E0D0] hover:bg-[#40E0D0]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="group relative flex h-16 w-16 items-center justify-center rounded-full border-4 border-white/20 bg-white/10 transition-all hover:border-[#24B3A8] hover:bg-[#24B3A8]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <div className="h-12 w-12 rounded-full bg-white transition-transform group-hover:scale-90 group-active:scale-75" />
                     </button>

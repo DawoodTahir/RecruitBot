@@ -1,5 +1,7 @@
-import { Bot, Loader2, User } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { ChatMessage } from "../types";
+import botIcon from "../assets/bot.svg";
+import userIcon from "../assets/user.svg";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -15,17 +17,17 @@ const MessageBubble = ({ message }: MessageBubbleProps) => {
     >
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser
-            ? "bg-[#40E0D0]/20 border border-[#40E0D0]/40"
-            : isSystem
-              ? "bg-amber-500/20 border border-amber-400/40"
-              : "bg-white/10 border border-white/20"
+        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center overflow-hidden ${isUser
+          ? "bg-[#24B3A8]/20 border border-[#24B3A8]/40"
+          : isSystem
+            ? "bg-amber-500/20 border border-amber-400/40"
+            : "bg-white/10 border border-white/20"
           }`}
       >
         {isUser ? (
-          <User className="size-4 text-[#40E0D0]" />
+          <img src={userIcon} alt="User" className="size-5" />
         ) : (
-          <Bot className="size-4 text-white/70" />
+          <img src={botIcon} alt="Bot" className="size-5" />
         )}
       </div>
 
@@ -34,10 +36,10 @@ const MessageBubble = ({ message }: MessageBubbleProps) => {
         {/* Bubble */}
         <div
           className={`rounded-2xl px-4 py-3 ${isUser
-              ? "bg-[#40E0D0]/20 border border-[#40E0D0]/30 rounded-br-md"
-              : isSystem
-                ? "bg-amber-500/10 border border-amber-400/30 rounded-bl-md"
-                : "bg-white/5 border border-white/10 rounded-bl-md"
+            ? "bg-[#24B3A8]/20 border border-[#24B3A8]/30 rounded-br-md"
+            : isSystem
+              ? "bg-amber-500/10 border border-amber-400/30 rounded-bl-md"
+              : "bg-white/5 border border-white/10 rounded-bl-md"
             }`}
         >
           <p className="text-sm leading-relaxed text-white/90 whitespace-pre-wrap">

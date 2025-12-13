@@ -2,6 +2,7 @@ import asyncio
 import json
 import os,requests
 import pathlib
+import sys
 import logging
 import random
 import PyPDF2
@@ -243,7 +244,7 @@ class MCPClient:
 
     async def connect_to_server(self, server_script_path):
         server_params = StdioServerParameters(
-            command="python",
+            command=sys.executable,
             args=[server_script_path],
             env=None,
         )

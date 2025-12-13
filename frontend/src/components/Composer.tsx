@@ -1,6 +1,5 @@
 import { FormEvent, ReactNode, useMemo, useState, useRef, useEffect, DragEvent } from "react";
-import { Loader2, Mic, MicOff, Send, Paperclip, FileText, X, Check, Camera } from "lucide-react";
-import CameraModal from "./CameraModal";
+import { Loader2, Mic, MicOff, Send, Paperclip, FileText, X, Check } from "lucide-react";
 import clsx from "clsx";
 
 interface ComposerProps {
@@ -28,8 +27,6 @@ const Composer = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [showCamera, setShowCamera] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<File | null>(null);
   const hasText = useMemo(() => value.trim().length > 0, [value]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const voiceSendTimer = useRef<number | null>(null);
@@ -218,7 +215,7 @@ const Composer = ({
       className={clsx(
         "mt-3 rounded-2xl border bg-white/5 p-3 transition-all duration-300",
         isDragOver
-          ? "border-[#40E0D0]/50 bg-[#40E0D0]/10 scale-[1.01]"
+          ? "border-[#24B3A8]/50 bg-[#24B3A8]/10 scale-[1.01]"
           : "border-white/10"
       )}
     >
@@ -282,37 +279,9 @@ const Composer = ({
         </div>
       )}
 
-      {/* Captured Image Preview */}
-      {capturedImage && (
-        <div className="relative mb-3 inline-block">
-          <div className="group relative overflow-hidden rounded-xl border border-white/20">
-            <img
-              src={URL.createObjectURL(capturedImage)}
-              alt="Captured"
-              className="h-20 w-auto object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => setCapturedImage(null)}
-              className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-rose-500"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
 
         <div className="flex items-center gap-2">
-          {/* Camera Button */}
-          <button
-            type="button"
-            onClick={() => setShowCamera(true)}
-            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl px-0 text-sm font-semibold uppercase tracking-wide transition-all duration-200 border border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10"
-          >
-            <Camera className="size-5" />
-          </button>
           <button
             type="button"
             onClick={handleVoiceInput}
@@ -377,13 +346,6 @@ const Composer = ({
           </div>
         </div>
       </div>
-
-      {showCamera && (
-        <CameraModal
-          onCapture={(file) => setCapturedImage(file)}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
     </form>
   );
 };
