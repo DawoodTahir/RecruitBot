@@ -49,14 +49,12 @@ async def _index_resume_from_s3(
         tmp_dir = Path(tmpdir)
         local_path = tmp_dir / Path(s3_key).name
 
-        # 1) Download from S3
         try:
             s3.download_file(S3_BUCKET_RESUMES, s3_key, str(local_path))
         except (BotoCoreError, ClientError) as exc:
             logger.error("Worker: failed to download %s from S3: %s", s3_key, exc)
             return
 
-        # 2) Mirror the same extraction logic as /upload in app.py
         index_path = local_path
         ext_lower = (ext or "").lower()
         try:
@@ -72,7 +70,6 @@ async def _index_resume_from_s3(
             logger.error("Worker: failed to extract text for %s: %s", local_path, exc)
             return
 
-        # 3) Index into GraphRAG under this user_id
         async def _run():
             await rag.index_document(str(index_path), user_id=user_id)
 
@@ -138,7 +135,6 @@ def main() -> None:
                     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt)
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Worker: error processing message: %s", exc)
-                # Let SQS redrive policy / DLQ handle retries.
 
 
 if __name__ == "__main__":

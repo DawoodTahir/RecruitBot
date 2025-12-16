@@ -20,7 +20,6 @@ FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 UPLOADS = BASE_DIR / "uploads"
 UPLOADS.mkdir(exist_ok = True)
 
-# Optional AWS-style storage/queue config (S3 + SQS).
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 AWS_ENDPOINT_URL = os.environ.get("AWS_ENDPOINT_URL")  # e.g. http://localhost:4566 for LocalStack
 S3_BUCKET_RESUMES = os.environ.get("S3_BUCKET_RESUMES", "recruitlens-resumes")
@@ -30,7 +29,6 @@ _s3_client = None
 _sqs_client = None
 
 if AWS_ENDPOINT_URL:
-    # Likely LocalStack or a custom endpoint.
     try:
         _s3_client = boto3.client("s3", region_name=AWS_REGION, endpoint_url=AWS_ENDPOINT_URL)
     except Exception as exc:
@@ -43,7 +41,6 @@ if AWS_ENDPOINT_URL:
         logging.warning("Failed to create SQS client (endpoint %s): %s", AWS_ENDPOINT_URL, exc)
         _sqs_client = None
 else:
-    # Standard AWS environment (no explicit endpoint URL).
     try:
         _s3_client = boto3.client("s3", region_name=AWS_REGION)
     except Exception as exc:
@@ -56,11 +53,8 @@ else:
         logging.warning("Failed to create SQS client: %s", exc)
         _sqs_client = None
 
-def _maybe_upload_to_s3(local_path: Path, user_id: str, filename: str) -> str | None:
-    """
-    Best-effort upload of the resume to S3 (or LocalStack S3) so storage is
-    closer to a production design. Returns the S3 key on success, or None.
-    """
+def _upload_to_s3(local_path: Path, user_id: str, filename: str) -> str | None:
+    
     if not _s3_client:
         return None
     key = f"{user_id}/{filename}"
@@ -72,11 +66,8 @@ def _maybe_upload_to_s3(local_path: Path, user_id: str, filename: str) -> str | 
         logging.warning("S3 upload failed for %s: %s", local_path, exc)
         return None
 
-def _maybe_enqueue_resume_job(user_id: str, s3_key: str | None, ext: str) -> None:
-    """
-    Placeholder for Phase 3: send a message to SQS so a worker can index the
-    resume asynchronously. For now this is a no-op if SQS is not configured.
-    """
+def _enqueue_resume_job(user_id: str, s3_key: str | None, ext: str) -> None:
+   
     if not _sqs_client or not SQS_QUEUE_URL or not s3_key:
         return
     body = {
@@ -90,8 +81,7 @@ def _maybe_enqueue_resume_job(user_id: str, s3_key: str | None, ext: str) -> Non
     except (BotoCoreError, ClientError) as exc:
         logging.warning("Failed to enqueue resume job to SQS: %s", exc)
 
-# Simple in-memory cache for suggestion box content.
-# Keyed by (user_id, role_title) so we don't recompute LLM skills/tips every time.
+
 SUGGESTIONS_CACHE: dict[tuple[str, str], dict] = {}
 
 
@@ -282,10 +272,10 @@ def upload():
     save_path = UPLOADS / filename
     file.save(save_path)
 
-    # Best-effort upload to S3 / LocalStack so storage is AWS-style.
-    s3_key = _maybe_upload_to_s3(save_path, user_id=user_id, filename=filename)
-    # In later phases, this will let a worker index resumes from S3 via SQS.
-    _maybe_enqueue_resume_job(user_id=user_id, s3_key=s3_key, ext=ext)
+    
+    s3_key = _upload_to_s3(save_path, user_id=user_id, filename=filename)
+   
+    _enqueue_resume_job(user_id=user_id, s3_key=s3_key, ext=ext)
 
     payload = {
         "status": "ok",
@@ -298,19 +288,10 @@ def upload():
 
 @app.route("/suggestions", methods=["GET"])
 def suggestions():
-    """
-    Suggestion box endpoint:
-    - Reads the candidate's role (title) from query or parsed CV.
-    - Runs two tools in sequence:
-        1) ESCO-based role skill extraction (+ LLM rewriting) via fetch_esco_role_skills
-        2) Generic interview attitude suggestions via generate_attitude_suggestions
-    - Returns a compact payload for the frontend side panel.
-    """
+    
     user_id = request.args.get("user_id", "anonymous")
     explicit_role = request.args.get("role")
 
-    # Determine role title / headline for display in the side panel.
-    # Prefer a richer, longer headline from the parsed CV where possible.
     role_title = explicit_role
     try:
         candidate = getattr(agent.rag, "candidate_info", {}) or {}
@@ -320,12 +301,12 @@ def suggestions():
         resume_struct = {}
 
     if not role_title:
-        # 1) Prefer CV headline if it is reasonably descriptive (more than 3 words)
+       
         headline = (candidate.get("headline") or "").strip()
         if headline and len(headline.split()) > 3:
             role_title = headline
         else:
-            # 2) Otherwise, build something slightly richer from title/role + top skills
+            
             base = (
                 (candidate.get("headline") or "").strip()
                 or (candidate.get("title") or "").strip()
@@ -339,12 +320,12 @@ def suggestions():
             role_title = (base + skills_fragment).strip()
 
     if not role_title:
-        # Final fallback if CV parsing didn't give us anything meaningful.
+
         role_title = "Machine Learning Engineer"
 
     occupation_label = role_title
 
-    # If we've already generated suggestions for this user + role, serve from cache.
+   
     cache_key = (user_id, role_title)
     cached = SUGGESTIONS_CACHE.get(cache_key)
     if cached is not None:
@@ -356,27 +337,23 @@ def suggestions():
         }
         return jsonify(payload)
 
-    # Company insights (can run before any CV upload)
     company_name = os.environ.get("COMPANY_NAME", "").strip()
     company_website = os.environ.get("COMPANY_WEBSITE", "").strip() or None
     company_linkedin = os.environ.get("COMPANY_LINKEDIN", "").strip() or None
 
     async def _run_tools():
-        # Tool 1: role tech keywords via ChatAgent (LLM-only, no ESCO/ONET)
         try:
             hot = await agent.generate_role_tech_keywords(role_title, limit=15)
         except Exception as exc:
             logger.warning("generate_role_tech_keywords failed: %s", exc)
             hot = []
 
-        # Tool 2: generic interview attitude suggestions (LLM, via agent)
         try:
             tips = await agent.generate_attitude_tips(occupation_label, hot)
         except Exception as exc:
             logger.warning("generate_attitude_tips failed: %s", exc)
             tips = []
 
-        # Company profile via scraper if configured
         company_profile = None
         if company_name and company_website:
             try:
@@ -401,15 +378,12 @@ def suggestions():
 
     hot_skills, attitude_tips, company_profile = asyncio.run(_run_tools())
 
-    # Store in cache so subsequent sidebar refreshes don't re-hit the LLM.
     SUGGESTIONS_CACHE[cache_key] = {
         "hot_skills": hot_skills,
         "attitude_tips": attitude_tips,
         "company": company_profile,
     }
 
-    # For display in the UI, prefer the role/title as extracted from the CV or
-    # explicitly provided by the caller (e.g. "packing machinery engineer").
     payload = {
         "role": role_title,
         "hot_skills": hot_skills,
