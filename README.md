@@ -1,244 +1,327 @@
-# MCP-Chatbot
+# RecruitBot
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)]()
-[![Build Status](https://img.shields.io/badge/build-unknown-lightgrey.svg)]()
-[![Model Card](https://img.shields.io/badge/model-card-available-green.svg)]()
 
-State-of-the-art, modular, reproducible chatbot platform for research and production. MCP-Chatbot provides tools to train, evaluate, and deploy large conversational models, with an emphasis on clear experiment tracking, safe defaults, and easy integration with downstream apps.
+
+
+About
+-----
+Recruitlens is a recruitment chatbot that works in a hybrid chat and video stream input from the candidate to anaylze his skills across the job description he is being interviewed for. The confidence in voice while speaking, sentiment analysis through the video input and clarity in the answers all play the role in deciding the standing of the candidate for the specified job. At the end the report is sent to hiring manager's whatsapp through MCP
+
+Built for researchers and engineers who want reproducible experiments and deployable results.
+
 
 Table of contents
+------------------
+
 - About
-- Highlights
-- Architecture & components
-- Quickstart
-- Installation (dev & prod)
-- Running (local & Docker)
+- Table of contents
+- Architecture Diagram
+- Results Overview
+- Installation (dev)
+- Running (Docker)
 - Example usage (Python & API)
-- Training & evaluation
-- Reproducing SOTA results
-- Datasets & preprocessing
-- Benchmarks & metrics (template)
-- Safety, privacy & limitations
-- Contributing
 - Citation & license
 - Contact
 
 ---
 
-About
------
-MCP-Chatbot is a modular framework for building modern conversational AI. It bundles:
-- A training/evaluation pipeline compatible with standard transformer backbones.
-- Pre-configured model and tokenizer handling.
-- An inference server (FastAPI) with production-ready configuration.
-- Utilities for dataset ingestion, preprocessing, and experiment tracking.
-- Safety, rate-limiting, and plugin hooks to extend behavior.
 
-Built for researchers and engineers who want reproducible experiments and deployable results.
+## Architecture
 
-Highlights
-----------
-- Modular: swap tokenizer/model/training loop with minimal code changes.
-- Reproducible: config-driven experiments (YAML/JSON) + logging + checkpoints.
-- Extensible: plugin hooks for moderation, memory, and retrieval-augmentation.
-- Production-ready API: containerized FastAPI server, health checks, Prometheus metrics.
-- Focus on safety: moderation hooks, logging, and opt-in telemetry.
+![Architecture Diagram](architecture.png)
 
-Architecture & components
--------------------------
-- data/ — dataset ingestion & preprocessing pipelines (parsers, dedupers, tokenizers).
-- models/ — model wrapper classes, adapter layers, and export utilities.
-- training/ — training loop, scheduler, checkpointing, mixed-precision support.
-- inference/ — FastAPI app, request handlers, rate limiting, and batching.
-- eval/ — evaluation scripts, metrics, and human-eval harnesses.
-- tools/ — experiment management, scripts, and helpers.
-- docs/ — design docs and model cards.
 
-A typical flow:
-1. Prepare dataset using data/ preprocessors.
-2. Configure experiment in experiments/*.yaml.
-3. Train with training/ script, log to experiment tracking (MLflow/W&B).
-4. Evaluate with eval/ and generate reports.
-5. Deploy using inference/ with a Docker image.
 
-Quickstart
-----------
-Clone, create a virtual environment, install, and run the dev server:
+## Results Overview 
 
-git clone https://github.com/DawoodTahir/MCP-Chatbot.git
-cd MCP-Chatbot
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
 
-# start local inference server (development)
-python -m inference.app --config configs/dev_inference.yaml
+<p align="center">
+  <img src="media/recruitbot.gif" alt="Result Preview" width="400"/>
+</p>
 
-Open http://localhost:8000/docs for interactive API docs.
+## Implementation
 
-Installation
-------------
-Recommended: Python 3.8+
+This section explains how to containerize the API (using `Dockerfile.api`), create a local k3s cluster with `k3d`, run a Neo4j database inside the cluster, deploy your API image into the cluster, and securely pass AWS credentials into the running workload. Follow the steps below exactly (replace placeholder values where indicated).
 
-Development
-pip install -e ".[dev]"          # installs test/dev dependencies (black, pytest, flake8)
+> **Prerequisites**
+> - Docker installed and running
+> - kubectl installed and configured (kubectl >= 1.20)
+> - k3d installed (for local testing)
 
-Production / minimal
-pip install -e .
+---
 
-Optional accelerated dependencies
-- For GPU training with PyTorch: pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu118
-- For FP16 training: apex or torch.cuda.amp (native amp recommended)
+### 1) Build the Docker image from `Dockerfile.api`
 
-Docker
-Build:
-docker build -t mcp-chatbot:latest .
+```bash
+docker build -t chatbot-api:local -f Dockerfile.api .
+```
 
-Run:
-docker run --rm -p 8000:8000 -e MCP_CONFIG=/app/configs/prod_inference.yaml mcp-chatbot:latest
+(Optional:  
+To use a remote registry, tag and push:
+```bash
+docker tag chatbot-api:local <your-dockerhub-username>/chatbot-api:latest
+docker push <your-dockerhub-username>/chatbot-api:latest
+```
+)
 
-Configuration
--------------
-All experiments and runtime behavior are configuration-driven (YAML). Example fields:
-- model: type, pretrained_checkpoint, tokenizer
-- training: batch_size, lr, epochs, mixed_precision
-- data: dataset_path, max_seq_len, cache
-- inference: max_tokens, top_k, top_p, temperature
-- logging: wandb/project, mlflow/uri
+---
 
-Example config: configs/example_train.yaml
+### 2) Install & Verify k3d
 
-Running locally
----------------
-Start an interactive Python session to run inference:
+```bash
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+# or: brew install k3d
+k3d version
+```
 
-from models import ChatModel
-model = ChatModel.from_pretrained("checkpoints/last")
-print(model.chat("Hello, how are you?"))
+---
 
-API example (curl)
-------------------
-POST /v1/generate
-curl -X POST http://localhost:8000/v1/generate \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"Explain the Pythagorean theorem in simple terms.","max_tokens":128}'
+### 3) Create a k3d cluster
 
-Python client example
----------------------
-from inference.client import ChatClient
-client = ChatClient("http://localhost:8000")
-resp = client.generate("Summarize the causes of WWI", max_tokens=150)
-print(resp.text)
+```bash
+k3d cluster create mcp-cluster --agents 1
+k3d image import chatbot-api:local --cluster mcp-cluster
+kubectl cluster-info
+```
 
-Training & evaluation
----------------------
-Train a model:
+---
 
-python -m training.run \
-  --config configs/example_train.yaml \
-  --output_dir outputs/exp01 \
-  --seed 42
+### 4) Deploy Neo4j inside the cluster
 
-Recommended practices:
-- Use mixed precision on GPU for speed/memory.
-- Use gradient accumulation to simulate larger batches.
-- Log checkpoints and metrics to an experiment tracker (W&B/MLflow).
-- Keep a deterministic config and record the random seed.
+Create `k8s/neo4j-deployment.yaml`:
 
-Evaluation
-python -m eval.evaluate --config configs/eval.yaml --ckpt outputs/exp01/checkpoint.pt
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neo4j
+  labels:
+    app: neo4j
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neo4j
+  template:
+    metadata:
+      labels:
+        app: neo4j
+    spec:
+      containers:
+      - name: neo4j
+        image: neo4j:4.4
+        env:
+        - name: NEO4J_AUTH
+          value: "neo4j/ChangeMe123!"
+        ports:
+        - containerPort: 7474
+        - containerPort: 7687
+        volumeMounts:
+        - name: neo4j-data
+          mountPath: /data
+      volumes:
+      - name: neo4j-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j
+spec:
+  selector:
+    app: neo4j
+  ports:
+  - name: http
+    port: 7474
+    targetPort: 7474
+  - name: bolt
+    port: 7687
+    targetPort: 7687
+  type: ClusterIP
+```
 
-Supported metrics (configurable):
-- Perplexity (PPL)
-- BLEU / ROUGE (if applicable)
-- Exact Match / F1 (task-specific)
-- Human evaluation harness (pairwise comparisons, Likert scales)
+```bash
+kubectl apply -f k8s/neo4j-deployment.yaml
+kubectl rollout status deployment/neo4j
+```
 
-Reproducing SOTA results
------------------------
-This repository provides a reproducible experiment template. To reproduce results:
-1. Pin dependencies (pip freeze > requirements.txt).
-2. Use the same config in experiments/ and the same checkpoint.
-3. Note hardware differences (GPU model, mixed precision).
-4. Share seeds and random state.
+---
 
-If you publish a paper claiming SOTA, include:
-- Full config YAML
-- Training logs (W&B/MLflow links)
-- Checkpoint or model card with evaluation artifacts
-- Exact dataset splits and preprocessing scripts
 
-Datasets & preprocessing
------------------------
-We don't redistribute proprietary datasets. Example public datasets used in experiments:
-- OpenAssistant Conversations
-- ParlAI datasets
-- MultiWOZ (task-oriented)
-- HumanEval (code models)
+### 5) Deploy API to K8s
 
-Preprocessing steps:
-1. normalize_unicode
-2. canonicalize punctuation
-3. deduplicate
-4. segment dialogues into context/response pairs
-5. tokenize and create model-specific features
+Example `k8s/api-deployment.yaml`:
 
-Example:
-python -m data.prepare --dataset path/to/raw --out data/processed --config configs/data_preproc.yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-api
+  namespace: mcp
+  labels:
+    app: mcp-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-api
+  template:
+    metadata:
+      labels:
+        app: mcp-api
+    spec:
+      serviceAccountName: mcp-api-sa
+      containers:
+        - name: mcp-api
+          image: chatbot-api:local      # Or your remote image tag
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: openai-secret
+            - secretRef:
+                name: neo4j-creds
+            - secretRef:
+                name: aws-creds
+            - secretRef:
+                name: whatsapp-secret
+            - configMapRef:
+                name: app-config
+---
 
-Benchmarks & metrics (template)
-------------------------------
-Replace the placeholders with real, reproducible numbers from your runs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-api
+  namespace: mcp
+spec:
+  selector:
+    app: mcp-api
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+```
+### 4. Deploy the API to the Kubernetes cluster
 
-Model | Dataset | Tokens | Params | Hardware | PPL | BLEU | Latency (ms)
------ | ------- | ------ | ------ | -------- | --- | ---- | -------------
-mcp-small (ours) | OA-conv-test | 10M | 125M | 1xA100 | 12.5 | 18.2 | 45
-mcp-base (ours)  | OA-conv-test | 50M | 350M | 1xA100 | 8.9  | 24.7 | 120
+Once the Docker image has been built and imported into the k3d/EKS cluster, apply the
+Kubernetes manifests to create or update the API deployment and service:
 
-Notes:
-- Report mean and standard deviation over at least 3 seeds when possible.
-- Share raw evaluation logs and code to compute metrics.
+```bash
+kubectl apply -f k8s/api-deployment.yaml
+```
+This:
 
-Safety, privacy & limitations
-----------------------------
-- This repository includes moderation utilities (rules-based + classifier hooks). They are helpers — not a full safety solution.
-- Models may produce harmful or biased outputs. Do not deploy without a safety review.
-- Logging can be disabled; ensure PII is not stored in logs when processing user data.
-- If you add a retrieval-augmented component, ensure sources are verified and caching is privacy-aware.
+- Creates/updates the `mcp-api` (chatbot API) `Deployment` and `Service`.
+- Ensures the desired number of pods are running with the latest image and env config.
 
-Contributing
-------------
-Contributions are welcome. Suggested flow:
-1. Fork and create a feature branch.
-2. Run tests and linters: pytest && flake8
-3. Open a PR with a clear description and tests where appropriate.
-4. Add to CHANGELOG.md and update docs.
+After applying, wait for the new pods to roll out successfully:
+```bash
+kubectl rollout status deployment/mcp-api
+```
+This blocks until the deployment is **ready** (all replicas up and healthy) or reports a
+failure, so you know the new version is live in the cluster before you start testing it.
+---
+##  WhatsApp API Setup (REQUIRED BEFORE START)
 
-Please read CONTRIBUTING.md and CODE_OF_CONDUCT.md (add these files if missing).
+Before proceeding, you must configure access to the WhatsApp API integration for MCP-Chatbot to send and receive messages.  
+**The following variables are required:**
 
-Model Card & Responsible Use
-----------------------------
-We include a model card (docs/model_card.md) describing:
-- Intended use
-- Limitations and biases
-- Training data provenance
-- Evaluation and metrics
-- Known failure modes
-- Recommended mitigations
+| Variable              | Description                                                  |
+|-----------------------|--------------------------------------------------------------|
+| `WHATSAPP_TOKEN`      | WhatsApp API access token from your WhatsApp provider (e.g., Meta Cloud API or Twilio) |
+| `WHATSAPP_PHONE_ID`   | WhatsApp phone number ID or business account ID              |
+
+- Obtain these credentials from your WhatsApp Business API provider (e.g., [Meta](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started), Twilio, etc.).
+- **These variables must be stored in your Kubernetes cluster as secrets** for production deployments.
+- Your application expects these variables to be accessible as environment variables.
+
+**Example setup (see below for Kubernetes secret instructions):**
+```bash
+kubectl -n mcp create secret generic whatsapp-secret \
+  --from-literal=WHATSAPP_TOKEN='<YOUR_WHATSAPP_TOKEN>' \
+  --from-literal=WHATSAPP_PHONE_ID='<YOUR_WHATSAPP_PHONE_ID>'
+### 6) Test/Debug
+
+```bash
+kubectl port-forward svc/neo4j 7474:7474
+# Open http://localhost:7474 in browser
+
+kubectl port-forward svc/mcp-api 8080:8080
+# Open http://localhost:8080 or call the endpoints
+
+kubectl logs -l app=mcp-api --follow
+kubectl logs -l app=neo4j --follow
+
+kubectl exec -it deploy/mcp-api -- env | grep -E 'NEO4J|AWS|OPENAI|S3|SQS'
+```
+
+---
+
+
+
+---
+
+## Configuring Secrets and Environment for Kubernetes
+
+Instead of a `.env` file, set credentials using Kubernetes Secrets (for sensitive values) and ConfigMaps (for non-sensitive configs):
+
+```bash
+# --- Namespace (if not already created) ---
+kubectl create namespace mcp || true
+
+# --- Add sensitive data as Kubernetes Secrets ---
+kubectl -n mcp create secret generic openai-secret \
+  --from-literal=OPENAI_API_KEY='<YOUR_OPENAI_API_KEY>'
+
+kubectl -n mcp create secret generic neo4j-creds \
+  --from-literal=NEO4J_USERNAME='neo4j' \
+  --from-literal=NEO4J_PASSWORD='<YOUR_NEO4J_PASSWORD>'
+
+kubectl -n mcp create secret generic aws-creds \
+  --from-literal=AWS_ACCESS_KEY_ID='<YOUR_AWS_ACCESS_KEY_ID>' \
+  --from-literal=AWS_SECRET_ACCESS_KEY='<YOUR_AWS_SECRET_ACCESS_KEY>' \
+  --from-literal=AWS_REGION='us-east-1'
+
+kubectl -n mcp create secret generic whatsapp-secret \
+  --from-literal=WHATSAPP_TOKEN='<YOUR_WHATSAPP_TOKEN>' \
+  --from-literal=WHATSAPP_PHONE_ID='<YOUR_WHATSAPP_PHONE_ID>'
+
+# --- Add non-sensitive settings as a ConfigMap ---
+kubectl -n mcp create configmap app-config \
+  --from-literal=NEO4J_URI='bolt://neo4j:7687' \
+  --from-literal=S3_BUCKET_RESUMES='recruitlens-resumes' \
+  --from-literal=SQS_QUEUE_URL='http://localstack:4566/000000000000/recruitlens-resume-jobs' \
+  --from-literal=AWS_ENDPOINT_URL='http://localstack:4566' \
+  --from-literal=COMPANY_NAME='Your Company Name' \
+  --from-literal=COMPANY_WEBSITE='https://your-company.com' \
+  --from-literal=JOB_REQUIREMENTS='Senior Machine Learning Engineer focusing on recommender systems and model optimization.'
+```
+
+In your Kubernetes manifests (see `k8s/api-deployment.yaml`), inject values with:
+
+```yaml
+envFrom:
+  - secretRef:
+      name: openai-secret
+  - secretRef:
+      name: neo4j-creds
+  - secretRef:
+      name: aws-creds
+  - secretRef:
+      name: whatsapp-secret
+  - configMapRef:
+      name: app-config
+```
+
+
 
 License
 -------
 This project is distributed under the Apache-2.0 License. See LICENSE for details.
-
-Acknowledgements & citations
----------------------------
-If you use MCP-Chatbot in published work, please cite:
-
-- The MCP-Chatbot repo: DOI/URL (add when available)
-- Transformer models:
-  - Vaswani et al., "Attention is All You Need", 2017.
-- Any pretrained model checkpoints used (HuggingFace model names / papers).
 
 Security & Responsible Disclosure
 ---------------------------------
@@ -249,10 +332,4 @@ Contact
 Maintainer: DawoodTahir
 GitHub: https://github.com/DawoodTahir/MCP-Chatbot
 
-What's next
------------
-- Add full experiment artifacts (configs, checkpoints, logs) to the experiments/ folder.
-- Populate model benchmarks with real numbers and hardware details.
-- Add automated CI for tests and validation of configs.
 
-Thank you for using MCP-Chatbot — contributions and feedback are highly appreciated!
