@@ -7,7 +7,7 @@
 
 About
 -----
-Recruitlens is a recruitment chatbot that works in a hybrid chat and video stream input from the candidate to anaylze his skills across the job description he is being interviewed for. The confidence in voice while speaking, sentiment analysis through the video input and clarity in the answers all play the role in deciding the standing of the candidate for the specified job. At the end the report is sent to hiring manager's whatsapp through MCP
+Recruitlens is a recruitment chatbot that works in a hybrid chat and video stream input from the candidate to anaylze his skills across the job description he is being interviewed for. The confidence in voice while speaking, sentiment analysis through the video input and clarity in the answers all play the role in deciding the standing of the candidate for the specified job. At the end the report is sent to hiring manager's whatsapp through MCP server.
 
 Built for researchers and engineers who want reproducible experiments and deployable results.
 
@@ -327,9 +327,5 @@ Security & Responsible Disclosure
 ---------------------------------
 If you discover a security vulnerability, please report it privately to the maintainers at <your-email@example.com> and do not create a public issue. Include steps to reproduce, affected versions, and potential impact.
 
-Contact
--------
-Maintainer: DawoodTahir
-GitHub: https://github.com/DawoodTahir/MCP-Chatbot
 
 
